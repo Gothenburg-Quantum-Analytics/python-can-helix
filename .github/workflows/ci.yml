@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check can_helix
+      - name: Test
+        run: pytest -q
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  release:
+    # Final release tags only (vX.Y.Z, not vX.Y.Z-rc1): publish a GitHub
+    # Release with the built sdist + wheel attached and the matching
+    # CHANGELOG.md section as the notes.
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '/^## /{ p = ($2 == v); next } p' CHANGELOG.md \
+            | sed -e '1{/^$/d}' > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "No CHANGELOG.md section for version $version" >&2
+            exit 1
+          fi
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # Re-run for an existing release (e.g. the tag was re-pushed):
+            # refresh the notes and replace the assets in place.
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file release-notes.md
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --verify-tag \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file release-notes.md
+          fi

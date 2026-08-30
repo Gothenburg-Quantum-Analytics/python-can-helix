@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "can-helix"
+version = "0.3.0"
+description = "python-can interface for Helix CAN backend with encryption support"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Bjorn Karlsson", email = "bjorn.karlsson@systemd-tech.com"}
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+    "Topic :: System :: Networking",
+]
+keywords = ["can", "can-bus", "python-can", "websocket", "helix"]
+
+dependencies = [
+    "python-can>=4.0.0",
+    "websocket-client>=1.0.0",
+    "requests>=2.25.0",
+    "cryptography>=41.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Gothenburg-Quantum-Analytics/python-can-helix"
+Documentation = "https://github.com/Gothenburg-Quantum-Analytics/python-can-helix#readme"
+Repository = "https://github.com/Gothenburg-Quantum-Analytics/python-can-helix"
+Issues = "https://github.com/Gothenburg-Quantum-Analytics/python-can-helix/issues"
+
+# python-can plugin entry point
+# This registers the interface so it can be used as:
+#   can.Bus(interface='helix', channel='ws://...')
+[project.entry-points."can.interface"]
+helix = "can_helix.bus:HelixBus"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["can_helix*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312', 'py313']
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
